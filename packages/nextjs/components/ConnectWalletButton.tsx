@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 const ConnectWalletButton: React.FC = () => {
@@ -94,7 +95,13 @@ const ConnectWalletButton: React.FC = () => {
                     className="w-full py-2 px-4 rounded-lg font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center gap-2 text-sm"
                   >
                     {chain.iconUrl && (
-                      <img alt={chain.name ?? "Chain icon"} src={chain.iconUrl} className="w-5 h-5 rounded-full" />
+                      <Image
+                        height={20}
+                        width={20}
+                        alt={chain.name ?? "Chain icon"}
+                        src={chain.iconUrl}
+                        className="w-5 h-5 rounded-full"
+                      />
                     )}
                     {chain.name}
                     <svg
