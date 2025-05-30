@@ -1,44 +1,57 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { DeployFunction } from "hardhat-deploy/types";
-import { Contract } from "ethers";
+import { ethers } from "hardhat";
+import { EventManager } from "../typechain-types";
 
-/**
- * Deploys a contract named "YourContract" using the deployer account and
- * constructor arguments set to the deployer address
- *
- * @param hre HardhatRuntimeEnvironment object.
- */
-const deployYourContract: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
-  /*
-    On localhost, the deployer account is the one that comes with Hardhat, which is already funded.
-
-    When deploying to live networks (e.g `yarn deploy --network sepolia`), the deployer account
-    should have sufficient balance to pay for the gas fees for contract creation.
-
-    You can generate a random account with `yarn generate` or `yarn account:import` to import your
-    existing PK which will fill DEPLOYER_PRIVATE_KEY_ENCRYPTED in the .env file (then used on hardhat.config.ts)
-    You can run the `yarn account` command to check your balance in every network.
-  */
+const deployTicketingSystem: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
   const { deployer } = await hre.getNamedAccounts();
   const { deploy } = hre.deployments;
 
-  await deploy("YourContract", {
+  // Deploy EventManager
+  const eventManager = await deploy("EventManager", {
     from: deployer,
-    // Contract constructor arguments
-    args: [deployer],
+    args: [deployer], // Pass deployer as initialOwner for Ownable
     log: true,
-    // autoMine: can be passed to the deploy function to make the deployment process faster on local networks by
-    // automatically mining the contract deployment transaction. There is no effect on live networks.
+    autoMine: true, // Faster deployment on local networks
+  });
+
+  // Deploy TicketMarketplace with a temporary address (will update later)
+  const ticketMarketplacePlaceholder = await deploy("TicketMarketplace", {
+    from: deployer,
+    args: [ethers.ZeroAddress, eventManager.address], // Temporary EventTicket address
+    log: true,
     autoMine: true,
   });
 
-  // Get the deployed contract to interact with it after deploying.
-  const yourContract = await hre.ethers.getContract<Contract>("YourContract", deployer);
-  console.log("👋 Initial greeting:", await yourContract.greeting());
+  // Deploy EventTicket with TicketMarketplace address
+  const eventTicket = await deploy("EventTicket", {
+    from: deployer,
+    args: [ticketMarketplacePlaceholder.address],
+    log: true,
+    autoMine: true,
+  });
+
+  // Re-deploy TicketMarketplace with correct EventTicket and EventManager addresses
+  const ticketMarketplace = await deploy("TicketMarketplace", {
+    from: deployer,
+    args: [eventTicket.address, eventManager.address],
+    log: true,
+    autoMine: true,
+  });
+  console.log("TicketMarketplace deployed at address:", ticketMarketplace.address);
+
+  // Optional: Test interaction (create an event)
+  const eventManagerContract = (await ethers.getContractAt("EventManager", eventManager.address)) as EventManager;
+  await eventManagerContract.createEvent(
+    "Test Concert",
+    Math.floor(Date.now() / 1000) + 86400, // Tomorrow
+    100,
+    ethers.parseEther("0.01"),
+  );
+  console.log("Test event created in EventManager at address:", eventManager.address);
 };
 
-export default deployYourContract;
+export default deployTicketingSystem;
 
-// Tags are useful if you have multiple deploy files and only want to run one of them.
-// e.g. yarn deploy --tags YourContract
-deployYourContract.tags = ["YourContract"];
+// Tags for running specific deployments
+deployTicketingSystem.tags = ["TicketingSystem", "EventManager", "EventTicket", "TicketMarketplace"];
